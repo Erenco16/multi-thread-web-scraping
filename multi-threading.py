@@ -111,7 +111,7 @@ def scrape_each_product(product_code):
 if __name__ == "__main__":
 
     st = time.time()
-    stock_codes = read_excel("eren-franke-hafele.xlsx")
+    stock_codes = read_excel("excel-file-to-be-read.xlsx")
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         data_to_be_extracted = executor.map(scrape_each_product, stock_codes)

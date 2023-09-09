@@ -6,6 +6,7 @@ import pandas as pd
 import re
 import os
 from dotenv import load_dotenv
+import send_mail
 
 load_dotenv()
 
@@ -125,6 +126,9 @@ if __name__ == "__main__":
     
     # extract the dataframe
     df.to_excel("multi-threading-test.xlsx", sheet_name="Urunler")
+
+    # send mail with the excel attachment to the relevant mail address
+    send_mail.send_mail_with_excel
 
     et = time.time()
 

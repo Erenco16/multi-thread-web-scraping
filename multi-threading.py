@@ -79,57 +79,83 @@ def extract_price_info(product_soup):
     return final_price.strip()
 
 def scrape_each_product(product_code):
-    session = requests.session()
+    try:
 
-    login_response = session.post(
-        login_url,
-        headers=headers,
-        data=payload
-    )
+        session = requests.session()
 
-
-    if login_response.status_code == 200:
-        if "Kullancı Bilgileriniz Hatalıdır" not in login_response.text:
-            count = 0
-            content_url = f"https://online.hafele.live/product-p-{product_code}"
-            content_response = session.get(content_url)
-
-            if "Internal Server Error" not in content_response.text:
-                content_soup = BeautifulSoup(content_response.text, "html.parser")
-                product_stock_list = extract_stock_info_from_page(content_soup)
-                product_price = extract_price_info(content_soup)
-                row_list = [product_code, product_stock_list[0], product_stock_list[1], product_stock_list[2], product_stock_list[3], product_price]
-                print(f"{product_code} done.")
-                count = count + 1
-            else:
-                row_list = [product_code, "yok", "yok", "yok", "yok", "yok"]
-                print(f"{product_code} does not exist on hafele online but done.")
-
-            return row_list
+        login_response = session.post(
+            login_url,
+            headers=headers,
+            data=payload
+        )
 
 
-if __name__ == "__main__":
+        if login_response.status_code == 200:
+            if "Kullancı Bilgileriniz Hatalıdır" not in login_response.text:
+                count = 0
+                content_url = f"https://online.hafele.live/product-p-{product_code}"
+                content_response = session.get(content_url)
+
+                if "Internal Server Error" not in content_response.text:
+                    content_soup = BeautifulSoup(content_response.text, "html.parser")
+                    product_stock_list = extract_stock_info_from_page(content_soup)
+                    product_price = extract_price_info(content_soup)
+                    row_list = [product_code, product_stock_list[0], product_stock_list[1], product_stock_list[2], product_stock_list[3], product_price]
+                    print(f"{product_code} done.")
+                    count = count + 1
+                else:
+                    row_list = [product_code, "yok", "yok", "yok", "yok", "yok"]
+                    print(f"{product_code} does not exist on hafele online but done.")
+
+                return row_list
+
+    except Exception as e:
+        print("An error occured.")
+
+
+def main():
+    # deleting the excel file if exists
+    try:
+        with open("hafele-guncel-stoklar.xlsx") as excel_file:
+            os.remove("hafele-guncel-stoklar.xlsx")
+    except FileNotFoundError:
+        pass
+
 
     st = time.time()
     stock_codes = read_excel("excel-file-to-be-read.xlsx")
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        data_to_be_extracted = executor.map(scrape_each_product, stock_codes)
+        try:
+            data_to_be_extracted = executor.map(scrape_each_product, stock_codes)
+        except Exception as e:
+            print("An error occured, trying scraping again.", e)
+            data_to_be_extracted = executor.map(scrape_each_product, stock_codes)
+        finally:
+            print("Not worked.")
 
-    dataframe_extract = list(data_to_be_extracted)
 
+    # get rid of none values
+    filtered_data = filter(None, data_to_be_extracted)
+
+    # convert filtered data to a list
+    dataframe_extract = list(filtered_data)
+
+    print(dataframe_extract)
     # creating the headers of the dataframe
     hd = ["stockCode", "paketIciMiktari", "paketIciTuru", "stockAmount", "stockType", "price"]
-    
+
     # create the dataframe
     df = pd.DataFrame(dataframe_extract, columns=hd)
-    
-    # extract the dataframe
-    df.to_excel("multi-threading-test.xlsx", sheet_name="Urunler")
 
-    # send mail with the excel attachment to the relevant mail address
-    send_mail.send_mail_with_excel
+    # extract the dataframe
+    df.to_excel("hafele-guncel-stoklar.xlsx", sheet_name="Urunler")
 
     et = time.time()
 
-    print(f"Time past to scrape {len(dataframe_extract)} products is {round(((et-st)/60), 2)} minutes")
+    send_mail.send_mail_with_excel()
+    print("The mail has been sent.")
+
+
+if __name__ == "__main__":
+    main()
